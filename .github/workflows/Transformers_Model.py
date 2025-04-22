@@ -27,9 +27,10 @@ df = pd.read_csv(DATA_PATH)
 le = LabelEncoder()
 df[TARGET_COLUMN] = le.fit_transform(df[ORIGINAL_GENRE_COLUMN])
 genre_names = le.classes_
-##4. Define the split 81/10/9
-train_val, test = train_test_split(df, test_size=0.1, stratify=df[TARGET_COLUMN], random_state=42)
-train, val = train_test_split(train_val, test_size=0.1, stratify=train_val[TARGET_COLUMN], random_state=42)
+
+##4. Define the split 80/20 (training/testing)
+train, test = train_test_split(df, test_size=0.2, stratify=df[TARGET_COLUMN], random_state=42)
+
 ##5. Define and separate categorical categories between continuous and categorical
 categorical_cols = ["explicit", "key", "mode", "time_signature"]
 continuous_cols = [
@@ -44,6 +45,7 @@ data_config = DataConfig(
     categorical_cols=categorical_cols,
     normalize_continuous_features=True,
 )
+
 ##7. Define the hyperparameters for the model.
 model_config = FTTransformerConfig(
     task="classification",
@@ -55,20 +57,21 @@ model_config = FTTransformerConfig(
     input_embed_dim=64,
     num_heads=4
 )
+
 ##8. Define the epochs and enable the gpu for faster training.
 trainer_config = TrainerConfig(
     max_epochs=100, ##100 and 80 epochs were the best results, but I kept 100.
     accelerator="gpu", #used a rtx 3060
     devices=1,
-    auto_lr_find=False, ##for previous runs I tried using this
+    auto_lr_find=False,
     checkpoints="valid_loss",
-    early_stopping=None,  ##disable early stopping, used for checking overfitting
+    early_stopping=None,
     progress_bar="console",
 )
 
 optimizer_config = OptimizerConfig()
 
-##9. Configurate the callback for login the data.
+##9. Configurate the callback for logging the data.
 class AccuracyLogger(Callback):
     def __init__(self):
         self.val_accuracies = []
@@ -91,7 +94,7 @@ tabular_model = TabularModel(
 
 ##11. Train the model
 print("Training model")
-tabular_model.fit(train=train, validation=val, callbacks=[acc_logger])
+tabular_model.fit(train=train, validation=None, callbacks=[acc_logger])  # No val split for now
 
 ##12. Evaluate the model
 print("Evaluating")
@@ -99,12 +102,14 @@ result = tabular_model.evaluate(test=test)
 print("Evaluation:", result)
 
 ##13.Print predictions
-pred_df = tabular_model.predict(test)
+X_test = test.drop(columns=[TARGET_COLUMN])
+y_true = test[TARGET_COLUMN].values
+
+pred_df = tabular_model.predict(X_test)
+y_pred = pred_df[f"{TARGET_COLUMN}_prediction"].values
 pred_df.to_csv(os.path.join(RESULTS_DIR, "predictions_selected.csv"), index=False)
 
 ##14.Generate confussion matrix
-y_true = test[TARGET_COLUMN]
-y_pred = pred_df[f"{TARGET_COLUMN}_prediction"]
 cm = confusion_matrix(y_true, y_pred)
 fig, ax = plt.subplots(figsize=(12, 12))
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=genre_names)
@@ -158,12 +163,12 @@ print(metrics_df.head(5).to_string(index=False))
 print("Bottom 5 Genres by F1-Score:")
 print(metrics_df.tail(5).to_string(index=False))
 
-##19. Print wighted scores.
+##19. Print weighted scores.
 macro = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0)
 weighted = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0)
 print(f"Macro F1: {macro[2]:.3f}, Weighted F1: {weighted[2]:.3f}")
 
-##20. Print accuracy val curve.
+##20. Print accuracy val curve (optional placeholder since no val split now).
 if acc_logger.val_accuracies:
     plt.figure()
     plt.plot(acc_logger.val_accuracies)
