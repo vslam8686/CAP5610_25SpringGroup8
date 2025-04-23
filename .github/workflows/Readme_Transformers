@@ -1,0 +1,10 @@
+##Transformers_Guide
+##The code is pretty straightforward. You only need to install the following libraries and you should be ready to go in 1 click:
+##pip install pandas
+##pip install numpy
+##pip install matplotlib
+##pip install scikit-learn
+##pip install pytorch-lightning
+##pip install pytorch-tabular
+##I also used CUDA 11.8, since it was compatible with my GPU but you can either run it normally or Upgrade to a newer version if your GPU is more modern.
+##pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
